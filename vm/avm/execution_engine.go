@@ -19,6 +19,8 @@ const (
 	gasFree = 10 * 100000000;
 )
 
+var count = 0
+
 func NewExecutionEngine(container interfaces.ICodeContainer, crypto interfaces.ICrypto, table interfaces.ICodeTable, service IInteropService, gas common.Fixed64) *ExecutionEngine {
 	var engine ExecutionEngine
 
@@ -149,6 +151,7 @@ func (e *ExecutionEngine) Execute() error {
 	return nil
 }
 
+
 func (e *ExecutionEngine) StepInto() error {
 	if e.invocationStack.Count() == 0 {
 		e.state = HALT
@@ -180,11 +183,14 @@ func (e *ExecutionEngine) StepInto() error {
 	//if e.gas < 0 {
 	//	return ErrOutOfGas
 	//}
-	fmt.Println("op", OpExecList[e.opCode].Name)
+	count ++
+	fmt.Println("op", count, " ", OpExecList[e.opCode].Name)
 	state, err := e.ExecuteOp()
 	s := e.evaluationStack.Count()
 	for i:=0; i<s;i++ {
-		fmt.Print(" ", e.evaluationStack.Peek(i).GetStackItem())
+		if(e.evaluationStack.Peek(i) != nil) {
+			fmt.Print(" ", e.evaluationStack.Peek(i).GetStackItem())
+		}
 	}
 	fmt.Println()
 	if state == HALT || state == FAULT {

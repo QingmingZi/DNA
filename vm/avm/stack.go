@@ -59,6 +59,9 @@ func (r *RandomAccessStack) Set(index int, t Element) {
 }
 
 func (r *RandomAccessStack) Push(t Element) {
+	if t == nil {
+		return
+	}
 	r.Insert(0, t)
 }
 
