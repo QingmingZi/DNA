@@ -3,6 +3,7 @@ package avm
 import (
 	"bytes"
 	"encoding/binary"
+	"DNA/common"
 )
 
 type ParamsBuilder struct {
@@ -40,7 +41,7 @@ func (p *ParamsBuilder) EmitPushInteger(data int64) {
 	}
 	buf := bytes.NewBuffer([]byte{})
 	binary.Write(buf, binary.BigEndian, data)
-	p.EmitPushByteArray(buf.Bytes())
+	p.EmitPushByteArray(common.ToArrayReverse(buf.Bytes()))
 }
 
 func (p *ParamsBuilder) EmitPushByteArray(data []byte) {
