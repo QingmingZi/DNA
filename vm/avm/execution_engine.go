@@ -172,10 +172,10 @@ func (e *ExecutionEngine) StepInto() error {
 	if !e.checkStackSize() {
 		return ErrOverLimitStack
 	}
-	e.gas -= e.getPrice() * ratio
-	if e.gas < 0 {
-		return ErrOutOfGas
-	}
+	//e.gas -= e.getPrice() * ratio
+	//if e.gas < 0 {
+	//	return ErrOutOfGas
+	//}
 	count ++
 	fmt.Println("op", count, " ", OpExecList[e.opCode].Name)
 	state, err := e.ExecuteOp()
@@ -318,19 +318,21 @@ func (e *ExecutionEngine) getPrice() int64 {
 
 func (e *ExecutionEngine) getPriceForSysCall() int64 {
 	context := e.context
-	i := context.GetInstructionPointer()
+	i := context.GetInstructionPointer() - 1
 	fmt.Println("i", i)
 	c := len(context.Code)
 	fmt.Println("c", c)
 	if i >= c - 3 {
 		return 1
 	}
-	l := int(context.Code[i + 1])
+	l := int(context.Code[i+1])
 	fmt.Println("l", l)
 	if i >= c - l - 2 {
 		return 1
 	}
-	name := string(context.Code[i + 2: l])
+	fmt.Println("code:", context.Code)
+	fmt.Println("len", len(context.Code), i+2, l)
+	name := string(context.Code[i+2:l])
 	fmt.Println("name:", name)
 	switch name {
 	case "AntShares.Blockchain.GetHeader":
