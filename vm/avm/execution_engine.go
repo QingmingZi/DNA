@@ -7,9 +7,6 @@ import (
 	_ "sort"
 	. "DNA/vm/avm/errors"
 	"DNA/common"
-	"DNA/vm/avm/types"
-	"encoding/binary"
-	"bytes"
 	"DNA/common/log"
 	"fmt"
 )
@@ -151,7 +148,6 @@ func (e *ExecutionEngine) Execute() error {
 	return nil
 }
 
-
 func (e *ExecutionEngine) StepInto() error {
 	if e.invocationStack.Count() == 0 {
 		e.state = HALT
@@ -173,22 +169,19 @@ func (e *ExecutionEngine) StepInto() error {
 	}
 	e.opCode = opCode
 	e.context = context
-	//if !e.checkStackSize() {
-	//	return ErrOverLimitStack
-	//}
-	//if !e.checkItemSize() {
-	//	return ErrOverMaxItemSize
-	//}
-	//e.gas -= e.getPrice() * ratio
-	//if e.gas < 0 {
-	//	return ErrOutOfGas
-	//}
+	if !e.checkStackSize() {
+		return ErrOverLimitStack
+	}
+	e.gas -= e.getPrice() * ratio
+	if e.gas < 0 {
+		return ErrOutOfGas
+	}
 	count ++
 	fmt.Println("op", count, " ", OpExecList[e.opCode].Name)
 	state, err := e.ExecuteOp()
 	s := e.evaluationStack.Count()
-	for i:=0; i<s;i++ {
-		if(e.evaluationStack.Peek(i) != nil) {
+	for i := 0; i < s; i++ {
+		if (e.evaluationStack.Peek(i) != nil) {
 			fmt.Print(" ", e.evaluationStack.Peek(i).GetStackItem())
 		}
 	}
@@ -219,6 +212,11 @@ func (e *ExecutionEngine) ExecuteOp() (VMState, error) {
 	opExec := OpExecList[e.opCode]
 	if opExec.Exec == nil {
 		return FAULT, ErrNotSupportOpCode
+	}
+	if opExec.Validator != nil {
+		if err := opExec.Validator(e); err != nil {
+			return FAULT, err
+		}
 	}
 	return opExec.Exec(e)
 }
@@ -277,41 +275,15 @@ func (e *ExecutionEngine) checkStackSize() bool {
 			size = 1
 		case UNPACK:
 			item := Peek(e)
-			if _, ok := item.GetStackItem().(*types.Array); !ok {
+			if item == nil {
 				return false
 			}
 			size = len(item.GetStackItem().GetArray())
-
 		}
 	}
-	size += e.evaluationStack.Count() + e.evaluationStack.Count()
+	size += e.evaluationStack.Count() + e.altStack.Count()
 	if uint32(size) > StackLimit {
 		return false
-	}
-	return true
-}
-
-func (e *ExecutionEngine) checkItemSize() bool {
-	switch e.opCode {
-	case PUSH4:
-		index := e.context.GetInstructionPointer()
-		if index + 4 >= len(e.context.Code) {
-			return false
-		}
-		bytesBuffer := bytes.NewBuffer(e.context.Code[index: index + 4])
-		var l uint32
-		binary.Read(bytesBuffer, binary.LittleEndian, &l)
-		if l > MAXSIZE {
-			return false
-		}
-	case CAT:
-		if e.evaluationStack.Count() < 2 {
-			return false
-		}
-		l := len(e.evaluationStack.Peek(0).GetStackItem().GetByteArray()) + len(e.evaluationStack.Peek(1).GetStackItem().GetByteArray())
-		if uint32(l) > MAXSIZE {
-			return false
-		}
 	}
 	return true
 }
