@@ -319,11 +319,14 @@ func (e *ExecutionEngine) getPrice() int64 {
 func (e *ExecutionEngine) getPriceForSysCall() int64 {
 	context := e.context
 	i := context.GetInstructionPointer()
+	fmt.Println("i", i)
 	c := len(context.Code)
+	fmt.Println("c", c)
 	if i >= c - 3 {
 		return 1
 	}
 	l := int(context.Code[i + 1])
+	fmt.Println("l", l)
 	if i >= c - l - 2 {
 		return 1
 	}
