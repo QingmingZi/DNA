@@ -331,6 +331,7 @@ func (e *ExecutionEngine) getPriceForSysCall() int64 {
 		return 1
 	}
 	name := string(context.Code[i + 2: l])
+	fmt.Println("name:", name)
 	switch name {
 	case "AntShares.Blockchain.GetHeader":
 		return 100
