@@ -48,9 +48,6 @@ func opRet(e *ExecutionEngine) (VMState, error) {
 }
 
 func opAppCall(e *ExecutionEngine) (VMState, error) {
-	if e.table == nil {
-		return FAULT, nil
-	}
 	codeHash := e.context.OpReader.ReadBytes(20)
 	code, err := e.table.GetCode(codeHash)
 	if code == nil {
@@ -64,15 +61,9 @@ func opAppCall(e *ExecutionEngine) (VMState, error) {
 }
 
 func opSysCall(e *ExecutionEngine) (VMState, error) {
-	if e.service == nil {
-		return FAULT, nil
-	}
-
 	s := e.context.OpReader.ReadVarString()
 
 	log.Error("[opSysCall] service name:", s)
-
-	log.Error("[opSysCall] service:", e.service.serviceMap)
 
 	success, err := e.service.Invoke(s, e)
 	if success {

@@ -4,7 +4,7 @@ import (
 	"DNA/vm/avm/types"
 )
 
-type Element interface{
+type Element interface {
 	GetStackItem() types.StackItemInterface
 	GetExecutionContext() *ExecutionContext
 }
@@ -24,8 +24,13 @@ func (r *RandomAccessStack) Count() int {
 }
 
 func (r *RandomAccessStack) Insert(index int, t Element) {
+	if t == nil {
+		return
+	}
 	l := len(r.e)
-	if index > l { return }
+	if index > l {
+		return
+	}
 	var array []Element
 	index = l - index
 	array = append(array, r.e[:index]...)
@@ -36,32 +41,35 @@ func (r *RandomAccessStack) Insert(index int, t Element) {
 
 func (r *RandomAccessStack) Peek(index int) Element {
 	l := len(r.e)
-	if index >= l {return nil}
+	if index >= l {
+		return nil
+	}
 	index = l - index
 	return r.e[index - 1]
 }
 
 func (r *RandomAccessStack) Remove(index int) Element {
 	l := len(r.e)
-	if index >= l {return nil}
-	index = l-index
-	e := r.e[index-1]
+	if index >= l {
+		return nil
+	}
+	index = l - index
+	e := r.e[index - 1]
 	var si []Element
-	si = append(r.e[:index-1], r.e[index:]...)
+	si = append(r.e[:index - 1], r.e[index:]...)
 	r.e = si
 	return e
 }
 
 func (r *RandomAccessStack) Set(index int, t Element) {
 	l := len(r.e)
-	if index >= l {return}
+	if index >= l {
+		return
+	}
 	r.e[index] = t
 }
 
 func (r *RandomAccessStack) Push(t Element) {
-	if t == nil {
-		return
-	}
 	r.Insert(0, t)
 }
 
