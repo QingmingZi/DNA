@@ -6,8 +6,8 @@ import (
 	. "DNA/net/httpjsonrpc"
 	"DNA/net/httprestful/common"
 	"DNA/core/transaction"
-	"DNA/smartcontract/states"
 	"DNA/core/asset"
+	"DNA/smartcontract/states"
 )
 
 type AccountInfo struct {
@@ -51,6 +51,33 @@ func GetTransactionInfo(transaction *transaction.Transaction) *Transactions {
 	return TransArryByteToHexString(transaction)
 }
 
+func GetTransactionInputs(inputs []*transaction.UTXOTxInput) []UTXOTxInputInfo {
+	inputList := make([]UTXOTxInputInfo, len(inputs))
+	for k, v := range inputs {
+		inputList[k].ReferTxID = ToHexString(v.ReferTxID.ToArrayReverse())
+		inputList[k].ReferTxOutputIndex = v.ReferTxOutputIndex
+	}
+	return inputList
+}
+
+func GetTransactionOutputs(outputs []*transaction.TxOutput) []TxoutputInfo {
+	outputList := make([]TxoutputInfo, len(outputs))
+	for k, v := range outputs {
+		outputList[k].AssetID = ToHexString(v.AssetID.ToArrayReverse())
+		outputList[k].Value = v.Value
+		outputList[k].ProgramHash = ToHexString(v.ProgramHash.ToArrayReverse())
+	}
+	return outputList
+}
+
+func GetTransactionAttributes(attributes []*transaction.TxAttribute) []TxAttributeInfo {
+	attributeList := make([]TxAttributeInfo, len(attributes))
+	for k, v := range attributes {
+		attributeList[k].Usage = v.Usage
+		attributeList[k].Data = ToHexString(v.Data)
+	}
+	return attributeList
+}
 
 func GetAccountInfo(account *states.AccountState) *AccountInfo {
 	balances := make(map[string]Fixed64)

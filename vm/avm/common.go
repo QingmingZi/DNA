@@ -432,6 +432,16 @@ func Pop(e *ExecutionEngine) Element {
 	return e.evaluationStack.Pop()
 }
 
+func PeekArray(e *ExecutionEngine) []types.StackItemInterface {
+	x := PeekStackItem(e)
+	return x.GetArray()
+}
+
+func PeekInteropInterface(e *ExecutionEngine) interfaces.IInteropInterface {
+	x := PeekStackItem(e)
+	return x.GetInterface()
+}
+
 func PeekInt(e *ExecutionEngine) int {
 	x := PeekBigInteger(e)
 	n := int(x.Int64())

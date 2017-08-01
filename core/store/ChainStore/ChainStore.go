@@ -779,7 +779,7 @@ func (bd *ChainStore) persist(b *Block) error {
 			smartContract, err := smartcontract.NewSmartContract(&smartcontract.Context{
 				Language: deployCode.Language,
 				Caller: deployCode.ProgramHash,
-				StateMachine: service.NewStateMachine(dbCache),
+				StateMachine: service.NewStateMachine(dbCache, NewDBCache(bd)),
 				DBCache: dbCache,
 				Code: deployCode.Code.Code,
 				Time: big.NewInt(int64(b.Blockdata.Timestamp)),
@@ -819,10 +819,10 @@ func (bd *ChainStore) persist(b *Block) error {
 				return err
 			}
 			contractState := state.(*states.ContractState)
-			smartContract, _ := smartcontract.NewSmartContract(&smartcontract.Context{
+			smartContract, err := smartcontract.NewSmartContract(&smartcontract.Context{
 				Language: contractState.Language,
 				Caller: invokeCode.ProgramHash,
-				StateMachine: service.NewStateMachine(dbCache),
+				StateMachine: service.NewStateMachine(dbCache, NewDBCache(bd)),
 				DBCache: dbCache,
 				CodeHash: invokeCode.CodeHash,
 				Input: invokeCode.Code,
@@ -834,16 +834,16 @@ func (bd *ChainStore) persist(b *Block) error {
 				ReturnType: contractState.Code.ReturnType,
 				ParameterTypes: contractState.Code.ParameterTypes,
 			})
+			if err != nil {
+				httpwebsocket.PushResult(txHash, SMARTCODE_ERROR, INVOKE_TRANSACTION, err)
+				continue
+			}
 			ret, err := smartContract.InvokeContract()
 			if err != nil {
 				httpwebsocket.PushResult(txHash, SMARTCODE_ERROR, INVOKE_TRANSACTION, err)
 				continue
 			}
 			httpwebsocket.PushResult(txHash, 0, INVOKE_TRANSACTION, ret)
-			err = dbCache.Commit()
-			if err != nil {
-				return err
-			}
 		}
 
 		for index := 0; index < len(b.Transactions[i].Outputs); index++ {
@@ -1049,6 +1049,11 @@ func (bd *ChainStore) persist(b *Block) error {
 
 	// BATCH PUT VALUE
 	bd.st.BatchPut(currentBlockKey.Bytes(), currentBlock.Bytes())
+
+	err = dbCache.Commit()
+	if err != nil {
+		return err
+	}
 
 	err = bd.st.BatchCommit()
 

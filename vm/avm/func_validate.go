@@ -93,8 +93,12 @@ func validatePick(e *ExecutionEngine) error {
 }
 
 func validateRoll(e *ExecutionEngine) error {
-	if err := validateOpStack(e); err != nil {
-		return err
+	if EvaluationStackCount(e) < 1 {
+		return ErrUnderStackLen
+	}
+	index := PeekNInt(0, e)
+	if index < 0 {
+		return ErrBadValue
 	}
 	return nil
 }

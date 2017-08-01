@@ -16,19 +16,18 @@ import (
 	"DNA/core/signature"
 	"bytes"
 	"DNA/core/store"
-	"DNA/common/log"
 	"DNA/errors"
 )
 
 type StateMachine struct {
 	*StateReader
-	DBCache  storage.DBCache
+	CloneCache *storage.CloneCache
 	hashForVerifying []common.Uint160
 }
 
-func NewStateMachine(dbCache storage.DBCache) *StateMachine {
+func NewStateMachine(dbCache storage.DBCache, innerCache storage.DBCache) *StateMachine {
 	var stateMachine StateMachine
-	stateMachine.DBCache = dbCache
+	stateMachine.CloneCache = storage.NewCloneDBCache(innerCache, dbCache)
 	stateMachine.StateReader = NewStateReader()
 	stateMachine.StateReader.Register("Neo.Blockchain.RegisterValidator", stateMachine.RegisterValidator)
 	stateMachine.StateReader.Register("Neo.Blockchain.CreateAsset", stateMachine.CreateAsset)
@@ -69,7 +68,7 @@ func (s *StateMachine) RegisterValidator(engine *avm.ExecutionEngine) (bool, err
 	}
 	b := new(bytes.Buffer)
 	pubkey.Serialize(b)
-	validatorState, err := s.DBCache.GetOrAdd(store.ST_Validator, b.String(), &states.ValidatorState{PublicKey: pubkey})
+	validatorState, err := s.CloneCache.GetInnerCache().GetOrAdd(store.ST_Validator, b.String(), &states.ValidatorState{PublicKey: pubkey})
 	if err != nil {
 		return false, err
 	}
@@ -110,7 +109,7 @@ func (s *StateMachine) CreateAsset(engine *avm.ExecutionEngine) (bool, error) {
 	}
 	b := new(bytes.Buffer)
 	assetId.Serialize(b)
-	assetState, err := s.DBCache.GetOrAdd(store.ST_Asset, b.String(), &states.AssetState{
+	assetState, err := s.CloneCache.GetInnerCache().GetOrAdd(store.ST_Asset, b.String(), &states.AssetState{
 		AssetId: assetId,
 		AssetType: asset.AssetType(assertType.Int64()),
 		Name: hex.EncodeToString(name),
@@ -165,7 +164,7 @@ func (s *StateMachine) GetContract(engine *avm.ExecutionEngine) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	item, err := s.DBCache.TryGet(store.ST_Contract, storage.KeyToStr(&hash))
+	item, err := s.CloneCache.TryGet(store.ST_Contract, storage.KeyToStr(&hash))
 	if err != nil {
 		return false, err
 	}
@@ -180,7 +179,7 @@ func (s *StateMachine) AssetRenew(engine *avm.ExecutionEngine) (bool, error) {
 	height := ledger.DefaultLedger.Store.GetHeight() + 1
 	b := new(bytes.Buffer)
 	at.AssetId.Serialize(b)
-	state, err := s.DBCache.TryGet(store.ST_Asset, b.String())
+	state, err := s.CloneCache.TryGet(store.ST_Asset, b.String())
 	if err != nil {
 		return false, err
 	}
@@ -202,22 +201,20 @@ func (s *StateMachine) ContractDestory(engine *avm.ExecutionEngine) (bool, error
 		return false, err
 	}
 	keyStr := storage.KeyToStr(&hash)
-	item, err := s.DBCache.TryGet(store.ST_Contract, keyStr)
+	item, err := s.CloneCache.TryGet(store.ST_Contract, keyStr)
 	if err != nil || item == nil {
 		return false, err
 	}
-	s.DBCache.GetWriteSet().Delete(keyStr)
+	s.CloneCache.GetInnerCache().GetWriteSet().Delete(keyStr)
 	return true, nil
 }
 
 func (s *StateMachine) CheckStorageContext(context *StorageContext) (bool, error) {
-	item, err := s.DBCache.TryGet(store.ST_Contract, string(context.codeHash.ToArray()))
+	item, err := s.CloneCache.TryGet(store.ST_Contract, string(context.codeHash.ToArray()))
 	if err != nil {
-		log.Error("[CheckStorageContext] Error:", err)
 		return false, err
 	}
 	if item == nil {
-		log.Error("[CheckStorageContext] Get Storage Context Fail")
 		return false, fmt.Errorf("check storage context fail, codehash=%v", context.codeHash)
 	}
 	return true, nil
@@ -230,17 +227,14 @@ func (s *StateMachine) StorageGet(engine *avm.ExecutionEngine) (bool, error) {
 		return false, err
 	}
 	key := avm.PopByteArray(engine)
-	log.Error("[StorageGet] key:", key)
 	storageKey := states.NewStorageKey(context.codeHash, key)
-	item, err := s.DBCache.TryGet(store.ST_Storage, storage.KeyToStr(storageKey))
+	item, err := s.CloneCache.TryGet(store.ST_Storage, storage.KeyToStr(storageKey))
 	if err != nil && err.Error() != errors.NewErr("leveldb: not found").Error(){
-		log.Error("[StorageGet] Get Storage By Key Error:", err)
 		return false, err
 	}
 	if item == nil {
 		avm.PushData(engine, []byte{0})
 	}else {
-		log.Error("[StorageGet] value:", item.(*states.StorageItem).Value)
 		avm.PushData(engine, item.(*states.StorageItem).Value)
 	}
 	return true, nil
@@ -251,10 +245,8 @@ func (s *StateMachine) StoragePut(engine *avm.ExecutionEngine) (bool, error) {
 	context := opInterface.(*StorageContext)
 	key := avm.PopByteArray(engine)
 	value := avm.PopByteArray(engine)
-	log.Error("[StoragePut] key:", key)
-	log.Error("[StoragePut] value:", value)
 	storageKey := states.NewStorageKey(context.codeHash, key)
-	s.DBCache.GetWriteSet().Add(store.ST_Storage, storage.KeyToStr(storageKey), states.NewStorageItem(value))
+	s.CloneCache.GetInnerCache().GetWriteSet().Add(store.ST_Storage, storage.KeyToStr(storageKey), states.NewStorageItem(value))
 	return true, nil
 }
 
@@ -263,7 +255,7 @@ func (s *StateMachine) StorageDelete(engine *avm.ExecutionEngine) (bool, error) 
 	context := opInterface.(*StorageContext)
 	key := avm.PopByteArray(engine)
 	storageKey := states.NewStorageKey(context.codeHash, key)
-	s.DBCache.GetWriteSet().Delete(storage.KeyToStr(storageKey))
+	s.CloneCache.GetInnerCache().GetWriteSet().Delete(storage.KeyToStr(storageKey))
 	return true, nil
 }
 

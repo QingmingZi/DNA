@@ -10,7 +10,6 @@ import (
 	"DNA/core/transaction"
 	"DNA/smartcontract/states"
 	"DNA/vm/avm"
-	"DNA/common/log"
 )
 
 type StateReader struct {
@@ -76,7 +75,6 @@ func NewStateReader() *StateReader {
 	return &stateReader
 }
 
-
 func (s *StateReader) Register(methodName string, handler func(*avm.ExecutionEngine) (bool, error)) bool {
 	if _, ok := s.serviceMap[methodName]; ok {
 		return false
@@ -93,11 +91,9 @@ func (s *StateReader) BlockChainGetHeight(e *avm.ExecutionEngine) (bool, error) 
 	var i uint32
 	if ledger.DefaultLedger == nil {
 		i = 0
-	}else {
-		log.Error("[BlockChainGetHeight] DefaultLedger Store:", i)
+	} else {
 		i = ledger.DefaultLedger.Store.GetHeight()
 	}
-	log.Error("[BlockChainGetHeight] height:", i)
 	avm.PushData(e, i)
 	return true, nil
 }
@@ -111,29 +107,32 @@ func (s *StateReader) BlockChainGetHeader(e *avm.ExecutionEngine) (bool, error) 
 	l := len(data)
 	if l <= 5 {
 		b := new(big.Int)
-		log.Error("[BlockChainGetHeight] data:", data)
 		height := uint32(b.SetBytes(common.ToArrayReverse(data)).Int64())
-		log.Error("[BlockChainGetHeight] height:", height)
 		if ledger.DefaultLedger != nil {
 			hash, err := ledger.DefaultLedger.Store.GetBlockHash(height)
-			if err != nil { return false, err }
+			if err != nil {
+				return false, err
+			}
 			header, err = ledger.DefaultLedger.Store.GetHeader(hash)
-			if err != nil { return false, err }
-		}else {
+			if err != nil {
+				return false, err
+			}
+		} else {
 			header = nil
 		}
-	}else if l == 32 {
+	} else if l == 32 {
 		hash, _ := common.Uint256ParseFromBytes(data)
 		if ledger.DefaultLedger != nil {
 			header, err = ledger.DefaultLedger.Store.GetHeader(hash)
-			if err != nil { return false, err }
-		}else {
+			if err != nil {
+				return false, err
+			}
+		} else {
 			header = nil
 		}
-	}else {
+	} else {
 		return false, errors.New("The data length is error in function blockchaningetheader!")
 	}
-	log.Error("[BlockChainGetHeader] header:", header)
 	avm.PushData(e, header)
 	return true, nil
 }
@@ -149,22 +148,30 @@ func (s *StateReader) BlockChainGetBlock(e *avm.ExecutionEngine) (bool, error) {
 		height := uint32(b.SetBytes(common.ToArrayReverse(data)).Int64())
 		if ledger.DefaultLedger != nil {
 			hash, err := ledger.DefaultLedger.Store.GetBlockHash(height)
-			if err != nil { return false, err }
+			if err != nil {
+				return false, err
+			}
 			block, err = ledger.DefaultLedger.Store.GetBlock(hash)
-			if err != nil { return false, err }
-		}else {
+			if err != nil {
+				return false, err
+			}
+		} else {
 			block = nil
 		}
-	}else if l == 32 {
+	} else if l == 32 {
 		hash, err := common.Uint256ParseFromBytes(data)
-		if err != nil { return false, err }
+		if err != nil {
+			return false, err
+		}
 		if ledger.DefaultLedger != nil {
 			block, err = ledger.DefaultLedger.Store.GetBlock(hash)
-			if err != nil { return false, err }
-		}else {
+			if err != nil {
+				return false, err
+			}
+		} else {
 			block = nil
 		}
-	}else {
+	} else {
 		return false, errors.New("The data length is error in function blockchaningetblock!")
 	}
 	avm.PushData(e, block)
@@ -189,7 +196,9 @@ func (s *StateReader) BlockChainGetTransaction(e *avm.ExecutionEngine) (bool, er
 func (s *StateReader) BlockChainGetAccount(e *avm.ExecutionEngine) (bool, error) {
 	d := avm.PopByteArray(e)
 	hash, err := common.Uint160ParseFromBytes(d)
-	if err != nil { return false, err }
+	if err != nil {
+		return false, err
+	}
 	account, err := ledger.DefaultLedger.Store.GetAccount(hash)
 	avm.PushData(e, account)
 	return true, nil
@@ -198,14 +207,32 @@ func (s *StateReader) BlockChainGetAccount(e *avm.ExecutionEngine) (bool, error)
 func (s *StateReader) BlockChainGetAsset(e *avm.ExecutionEngine) (bool, error) {
 	d := avm.PopByteArray(e)
 	hash, err := common.Uint256ParseFromBytes(d)
-	if err != nil { return false, err }
+	if err != nil {
+		return false, err
+	}
 	asset, err := ledger.DefaultLedger.Store.GetAsset(hash)
-	if err != nil { return false, err }
+	if err != nil {
+		return false, err
+	}
+
 	avm.PushData(e, asset)
 	return true, nil
 }
 
 func (s *StateReader) BlockChainGetValidators(e *avm.ExecutionEngine) (bool, error) {
+	bookKeeperList, _, err := ledger.DefaultLedger.Store.GetBookKeeperList()
+	if err != nil {
+		return false, err
+	}
+	pkList := make([]types.StackItemInterface, 0)
+	for _, v := range bookKeeperList {
+		pk, err := v.EncodePoint(true)
+		if err != nil {
+			return false, err
+		}
+		pkList = append(pkList, types.NewByteArray(pk))
+	}
+	avm.PushData(e, pkList)
 	return true, nil
 }
 
@@ -214,7 +241,7 @@ func (s *StateReader) HeaderGetHash(e *avm.ExecutionEngine) (bool, error) {
 	if d == nil {
 		return false, fmt.Errorf("%v", "Get header error in function headergethash!", )
 	}
-   	h := d.(*ledger.Header).Blockdata.Hash()
+	h := d.(*ledger.Header).Blockdata.Hash()
 	avm.PushData(e, h.ToArray())
 	return true, nil
 }
@@ -275,7 +302,7 @@ func (s *StateReader) HeaderGetNextConsensus(e *avm.ExecutionEngine) (bool, erro
 		return false, fmt.Errorf("%v", "Get header error in function HeaderGetNextConsensus")
 	}
 	nextBookKeeper := d.(*ledger.Header).Blockdata.NextBookKeeper
-	avm.PushData(e, nextBookKeeper)
+	avm.PushData(e, nextBookKeeper.ToArray())
 	return true, nil
 }
 
@@ -290,32 +317,25 @@ func (s *StateReader) BlockGetTransactionCount(e *avm.ExecutionEngine) (bool, er
 }
 
 func (s *StateReader) BlockGetTransactions(e *avm.ExecutionEngine) (bool, error) {
-	fmt.Println("[BlockGetTransactions]")
 	d := avm.PopInteropInterface(e)
-	fmt.Println("[BlockGetTransactions] data", d)
 	if d == nil {
 		return false, fmt.Errorf("%v", "Get block data error in function BlockGetTransactions")
 	}
 	transactions := d.(*ledger.Block).Transactions
 	transactionList := make([]types.StackItemInterface, 0)
-	fmt.Println("================len transactions==============", len(transactions))
 	for _, v := range transactions {
 		transactionList = append(transactionList, types.NewInteropInterface(v))
 	}
-	fmt.Println("================transactionList==============", transactionList)
 	avm.PushData(e, transactionList)
 	return true, nil
 }
 
 func (s *StateReader) BlockGetTransaction(e *avm.ExecutionEngine) (bool, error) {
 	index := avm.PopInt(e)
-	fmt.Println("[BlockGetTransactions] index", index)
 	if index < 0 {
 		return false, fmt.Errorf("%v", "index invalid in function BlockGetTransaction")
 	}
-	fmt.Println("[BlockGetTransaction]")
 	d := avm.PopInteropInterface(e)
-	fmt.Println("[BlockGetTransactions] data", d)
 	if d == nil {
 		return false, fmt.Errorf("%v", "Get transaction data error in function BlockGetTransaction")
 	}
@@ -348,7 +368,17 @@ func (s *StateReader) TransactionGetType(e *avm.ExecutionEngine) (bool, error) {
 }
 
 func (s *StateReader) TransactionGetAttributes(e *avm.ExecutionEngine) (bool, error) {
-	return  true, nil
+	d := avm.PopInteropInterface(e)
+	if d == nil {
+		return false, fmt.Errorf("%v", "Get transaction error in function TransactionGetAttributes")
+	}
+	attributes := d.(*transaction.Transaction).Attributes
+	attributList := make([]types.StackItemInterface, 0)
+	for _, v := range attributes {
+		attributList = append(attributList, types.NewInteropInterface(v))
+	}
+	avm.PushData(e, attributList)
+	return true, nil
 }
 
 func (s *StateReader) TransactionGetInputs(e *avm.ExecutionEngine) (bool, error) {
@@ -390,7 +420,9 @@ func (s *StateReader) TransactionGetReferences(e *avm.ExecutionEngine) (bool, er
 		referenceList = append(referenceList, types.NewInteropInterface(v))
 	}
 	avm.PushData(e, referenceList)
-	if err != nil {return false, err}
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -475,14 +507,16 @@ func (s *StateReader) AccountGetCodeHash(e *avm.ExecutionEngine) (bool, error) {
 }
 
 func (s *StateReader) AccountGetBalance(e *avm.ExecutionEngine) (bool, error) {
+	assetIdByte := avm.PopByteArray(e)
+	assetId, err := common.Uint256ParseFromBytes(assetIdByte)
+	if err != nil {
+		return false, err
+	}
 	d := avm.PopInteropInterface(e)
 	if d == nil {
 		return false, fmt.Errorf("%v", "Get AccountState error in function AccountGetCodeHash")
 	}
 	accountState := d.(*states.AccountState)
-	assetIdByte := avm.PopByteArray(e)
-	assetId, err := common.Uint256ParseFromBytes(assetIdByte)
-	if err != nil {return false, err}
 	balance := common.Fixed64(0)
 	if v, ok := accountState.Balances[assetId]; ok {
 		balance = v
@@ -548,7 +582,9 @@ func (s *StateReader) AssetGetOwner(e *avm.ExecutionEngine) (bool, error) {
 	}
 	assetState := d.(*states.AssetState)
 	owner, err := assetState.Owner.EncodePoint(true)
-	if err != nil {return false, err}
+	if err != nil {
+		return false, err
+	}
 	avm.PushData(e, owner)
 	return true, nil
 }
@@ -585,7 +621,9 @@ func (s *StateReader) ContractGetCode(e *avm.ExecutionEngine) (bool, error) {
 
 func (s *StateReader) StorageGetContext(e *avm.ExecutionEngine) (bool, error) {
 	codeHash, err := common.Uint160ParseFromBytes(e.CurrentContext().GetCodeHash())
-	if err != nil {return false, err}
+	if err != nil {
+		return false, err
+	}
 	avm.PushData(e, NewStorageContext(&codeHash))
 	return true, nil
 }
