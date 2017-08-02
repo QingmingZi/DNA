@@ -45,8 +45,14 @@ func opPickItem(e *ExecutionEngine) (VMState, error) {
 func opSetItem(e *ExecutionEngine) (VMState, error) {
 	newItem := PopStackItem(e)
 	index := PopInt(e)
-	items := PopArray(e)
-	items[index] = newItem
+	itemArr := PopStackItem(e)
+	if _, ok := itemArr.(*types.Array); ok {
+		items := itemArr.GetArray()
+		items[index] = newItem
+	}else {
+		items := itemArr.GetByteArray()
+		items[index] = newItem.GetByteArray()[0]
+	}
 	return NONE, nil
 }
 

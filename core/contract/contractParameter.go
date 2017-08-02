@@ -11,6 +11,9 @@ const (
 	Hash256
 	ByteArray
 	PublicKey
+	PublicKeyArray
+	//Code
+	//String
 	Object
 	Void = 0xff
 )

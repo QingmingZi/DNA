@@ -16,7 +16,6 @@ import (
 	"bytes"
 	"DNA/common/serialization"
 	"fmt"
-	"DNA/common/log"
 	"strconv"
 	"DNA/core/ledger"
 	"DNA/core/transaction"
@@ -99,7 +98,6 @@ func (sc *SmartContract) InvokeContract() (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Error("==========input=========", input)
 	sc.Engine.Call(sc.Caller, sc.CodeHash, input)
 	return sc.InvokeResult()
 }
@@ -108,32 +106,33 @@ func (sc *SmartContract) InvokeResult() (interface{}, error) {
 	switch sc.VMType {
 	case types.AVM:
 		engine := sc.Engine.(*avm.ExecutionEngine)
-		log.Error("==========type========", sc.ReturnType)
-		log.Error("==========type========", engine.GetEvaluationStackCount())
-		if engine.GetEvaluationStackCount() > 0 && avm.Peek(engine).GetStackItem() != nil{
+		if engine.GetEvaluationStackCount() > 0 && avm.Peek(engine).GetStackItem() != nil {
 			switch sc.ReturnType {
 			case contract.Boolean:
-				log.Error("=========Result==========", avm.Peek(engine))
 				return avm.PopBoolean(engine), nil
 			case contract.Integer:
 				return avm.PopInt(engine), nil
 			case contract.ByteArray:
-				log.Error("=========Result ByteArray==========", string(avm.Peek(engine).GetStackItem().GetByteArray()))
 				return string(avm.PopByteArray(engine)), nil
 			case contract.Hash160, contract.Hash256:
 				return common.ToHexString(common.ToArrayReverse(avm.PopByteArray(engine))), nil
+			case contract.PublicKey:
+				return common.ToHexString(avm.PopByteArray(engine)), nil
+			case contract.PublicKeyArray:
+				data := avm.PopArray(engine)
+				pkArray := make([]string, 0)
+				for _, v := range data {
+					pkArray = append(pkArray, common.ToHexString(v.GetByteArray()))
+				}
+				return pkArray, nil
 			case contract.Object:
-				log.Error("==============Object============", avm.Peek(engine).GetStackItem())
-				data := avm.PopInteropInterface(engine)
+				data := avm.PeekInteropInterface(engine)
 				switch data.(type) {
 				case *ledger.Header:
-					log.Error("==============ledger.Header============", data.(*ledger.Header))
 					return service.GetHeaderInfo(data.(*ledger.Header)), nil
 				case *ledger.Block:
-					log.Error("==============ledger.Block============", data.(*ledger.Block))
 					return service.GetBlockInfo(data.(*ledger.Block)), nil
 				case *transaction.Transaction:
-					log.Error("==============transaction.Transaction============", data.(*transaction.Transaction))
 					return service.GetTransactionInfo(data.(*transaction.Transaction)), nil
 				case *states.AccountState:
 					return service.GetAccountInfo(data.(*states.AccountState)), nil
@@ -141,6 +140,19 @@ func (sc *SmartContract) InvokeResult() (interface{}, error) {
 					return service.GetAssetInfo(data.(*asset.Asset)), nil
 				default:
 					return data, nil
+					//data := avm.PeekArray(engine)
+					//if len(data) == 0 {
+					//	return nil, nil
+					//}
+					//switch data[0].(type) {
+					//case *transaction.TxAttribute:
+					//	attributs := make([]*transaction.TxAttribute, len(data))
+					//	for k, v := range data {
+					//		attributs[k] = v(*transaction.TxAttribute{})
+					//	}
+					//	return service.GetTransactionAttributes(attributs)
+					//}
+					//return data, nil
 				}
 			}
 		}
@@ -173,8 +185,13 @@ func (sc *SmartContract) InvokeParamsTransform() ([]byte, error) {
 				if err != nil {
 					return nil, err
 				}
-				fmt.Println("===========p=============", int64(i))
 				builder.EmitPushInteger(int64(i))
+			case contract.Hash160, contract.Hash256:
+				p, err := serialization.ReadVarBytes(b)
+				if err != nil {
+					return nil, err
+				}
+				builder.EmitPushByteArray(common.ToArrayReverse(p))
 			case contract.ByteArray:
 				p, err := serialization.ReadVarBytes(b)
 				if err != nil {

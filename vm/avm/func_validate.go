@@ -214,11 +214,19 @@ func validatorSetItem(e *ExecutionEngine) error {
 	}
 	item := arrItem.GetStackItem()
 	if _, ok := item.(*types.Array); !ok {
-		return ErrNotArray
+		if _, ok := item.(*types.ByteArray); ok {
+			if index >= len(item.GetByteArray()) {
+				return ErrOverMaxArraySize
+			}
+		} else {
+			return ErrBadValue
+		}
+	}else {
+		if index >= len(item.GetArray()) {
+			return ErrOverMaxArraySize
+		}
 	}
-	if index >= len(item.GetArray()) {
-		return ErrOverMaxArraySize
-	}
+
 	return nil
 }
 
