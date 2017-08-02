@@ -25,7 +25,7 @@ type FunctionCodeInfo struct {
 type DeployCodeInfo struct {
 	Code        *FunctionCodeInfo
 	Name        string
-	CodeVersion string
+	Version string
 	Author      string
 	Email       string
 	Description string
@@ -107,7 +107,7 @@ func TransPayloadToHex(p Payload) PayloadInfo {
 		codeHash := object.Code.CodeHash()
 		obj.Code.CodeHash = ToHexString(codeHash.ToArrayReverse())
 		obj.Name = object.Name
-		obj.CodeVersion = object.CodeVersion
+		obj.Version = object.CodeVersion
 		obj.Author = object.Author
 		obj.Email = object.Email
 		obj.Description = object.Description

@@ -300,7 +300,7 @@ func GetContract(cmd map[string]interface{}) map[string]interface{} {
 		Name:        c.Name,
 		Author:      c.Author,
 		Email:       c.Email,
-		CodeVersion: c.Version,
+		Version: c.Version,
 		Description: c.Description,
 		Language:    int(c.Language),
 		Code:        new(FunctionCodeInfo),
