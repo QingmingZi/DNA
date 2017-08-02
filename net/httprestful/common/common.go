@@ -261,6 +261,7 @@ func ResponsePack(errCode int64) map[string]interface{} {
 	}
 	return resp
 }
+
 func GetContract(cmd map[string]interface{}) map[string]interface{} {
 	resp := ResponsePack(Err.SUCCESS)
 	str := cmd["Hash"].(string)
@@ -272,38 +273,41 @@ func GetContract(cmd map[string]interface{}) map[string]interface{} {
 	var hash Uint160
 	err = hash.Deserialize(bytes.NewReader(bys))
 	if err != nil {
-		resp["Error"] = Err.INVALID_TRANSACTION
+		resp["Error"] = Err.INVALID_PARAMS
 		return resp
 	}
 	contract, err := ledger.DefaultLedger.Store.GetContract(hash)
 	if err != nil {
-		resp["Error"] = Err.INVALID_TRANSACTION
+		resp["Error"] = Err.INVALID_PARAMS
 		return resp
-	}
-	type Result struct {
-		Name string
-		Author string
-		Email string
-		Version string
-		ParameterTypes string
 	}
 	c := new(states.ContractState)
 	b := bytes.NewBuffer(contract)
 	c.Deserialize(b)
-	params := ""
-	for k, v := range c.Code.ParameterTypes {
-		if k == 0 {
-			params = ToHexString([]byte{byte(v)})
-		}else {
-			params += "," + ToHexString([]byte{byte(v)}[:])
-		}
+	var params []int
+	for _, v := range c.Code.ParameterTypes {
+		params = append(params, int(v))
 	}
-	resp["Result"] = Result{
-		Name: c.Name,
-		Author: c.Author,
-		Email: c.Email,
-		Version: c.Version,
+	codehash := c.Code.CodeHash()
+	funcCode := &FunctionCodeInfo{
+		Code:           ToHexString(c.Code.Code),
 		ParameterTypes: params,
+		ReturnType:     int(c.Code.ReturnType),
+		CodeHash:       ToHexString(codehash.ToArrayReverse()),
 	}
+	programHash := c.ProgramHash
+	result := DeployCodeInfo{
+		Name:        c.Name,
+		Author:      c.Author,
+		Email:       c.Email,
+		CodeVersion: c.Version,
+		Description: c.Description,
+		Language:    int(c.Language),
+		Code:        new(FunctionCodeInfo),
+		ProgramHash: ToHexString(programHash.ToArrayReverse()),
+	}
+
+	result.Code = funcCode
+	resp["Result"] = result
 	return resp
 }
