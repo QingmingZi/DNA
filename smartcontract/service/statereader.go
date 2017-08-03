@@ -210,12 +210,11 @@ func (s *StateReader) BlockChainGetAsset(e *avm.ExecutionEngine) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	asset, err := ledger.DefaultLedger.Store.GetAsset(hash)
+	assetState, err := ledger.DefaultLedger.Store.GetAssetState(hash)
 	if err != nil {
 		return false, err
 	}
-
-	avm.PushData(e, asset)
+	avm.PushData(e, assetState)
 	return true, nil
 }
 

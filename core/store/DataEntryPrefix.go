@@ -23,7 +23,7 @@ const (
 	ST_Contract       DataEntryPrefix = 0xc2
 	ST_Storage        DataEntryPrefix = 0xc3
 	ST_ACCOUNT        DataEntryPrefix = 0xc4
-	ST_Asset          DataEntryPrefix = 0xc5
+	ST_AssetState     DataEntryPrefix = 0xc5
 	ST_Validator      DataEntryPrefix = 0xc6
 
 	//SYSTEM

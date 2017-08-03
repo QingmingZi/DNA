@@ -30,6 +30,7 @@ type ILedgerStore interface {
 	GetContract(codeHash Uint160) ([]byte, error)
 	GetStorage(key []byte) ([]byte, error)
 	GetAccount(programHash Uint160) (*states.AccountState, error)
+	GetAssetState(assetId Uint256) (*states.AssetState, error)
 
 	GetCurrentBlockHash() Uint256
 	GetCurrentHeaderHash() Uint256

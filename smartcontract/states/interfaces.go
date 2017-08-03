@@ -23,7 +23,7 @@ var (
 		store.ST_Contract: new(ContractState),
 		store.ST_Storage: new(StorageItem),
 		store.ST_ACCOUNT: new(AccountState),
-		store.ST_Asset: new(AssetState),
+		store.ST_AssetState: new(AssetState),
 	}
 )
 

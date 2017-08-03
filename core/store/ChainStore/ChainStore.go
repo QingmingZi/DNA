@@ -502,6 +502,17 @@ func (bd *ChainStore) GetAsset(hash Uint256) (*Asset, error) {
 	return asset, nil
 }
 
+func (bd *ChainStore) GetAssetState(assetId Uint256) (*states.AssetState, error) {
+	assetState := new(states.AssetState)
+	data, err := bd.st.Get(append([]byte{byte(ST_AssetState)}, assetId.ToArray()...))
+	if err != nil {
+		return nil, err
+	}
+	r := bytes.NewReader(data)
+	assetState.Deserialize(r)
+	return assetState, nil
+}
+
 func (bd *ChainStore) GetTransaction(hash Uint256) (*tx.Transaction, error) {
 	log.Debug()
 	log.Debug(fmt.Sprintf("GetTransaction Hash: %x\n", hash))

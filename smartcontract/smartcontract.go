@@ -112,19 +112,12 @@ func (sc *SmartContract) InvokeResult() (interface{}, error) {
 				return avm.PopBoolean(engine), nil
 			case contract.Integer:
 				return avm.PopInt(engine), nil
-			case contract.ByteArray:
+			case contract.ByteArray, contract.String:
 				return string(avm.PopByteArray(engine)), nil
 			case contract.Hash160, contract.Hash256:
 				return common.ToHexString(common.ToArrayReverse(avm.PopByteArray(engine))), nil
 			case contract.PublicKey:
 				return common.ToHexString(avm.PopByteArray(engine)), nil
-			case contract.PublicKeyArray:
-				data := avm.PopArray(engine)
-				pkArray := make([]string, 0)
-				for _, v := range data {
-					pkArray = append(pkArray, common.ToHexString(v.GetByteArray()))
-				}
-				return pkArray, nil
 			case contract.Object:
 				data := avm.PeekInteropInterface(engine)
 				switch data.(type) {

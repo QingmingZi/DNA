@@ -335,35 +335,35 @@ func (e *ExecutionEngine) getPriceForSysCall() int64 {
 	name := string(context.Code[i+2:l])
 	fmt.Println("name:", name)
 	switch name {
-	case "AntShares.Blockchain.GetHeader":
+	case "Neo.Blockchain.GetHeader":
 		return 100
-	case "AntShares.Blockchain.GetBlock":
+	case "Neo.Blockchain.GetBlock":
 		return 200
-	case "AntShares.Blockchain.GetTransaction":
+	case "Neo.Blockchain.GetTransaction":
 		return 100
-	case "AntShares.Blockchain.GetAccount":
+	case "Neo.Blockchain.GetAccount":
 		return 100
-	case "AntShares.Blockchain.RegisterValidator":
+	case "Neo.Blockchain.RegisterValidator":
 		return 1000 * 100000000 / ratio;
-	case "AntShares.Blockchain.GetValidators":
+	case "Neo.Blockchain.GetValidators":
 		return 200
-	case "AntShares.Blockchain.CreateAsset":
+	case "Neo.Blockchain.CreateAsset":
 		return 5000 * 100000000 / ratio
-	case "AntShares.Blockchain.GetAsset":
+	case "Neo.Blockchain.GetAsset":
 		return 100
-	case "AntShares.Blockchain.CreateContract":
+	case "Neo.Blockchain.CreateContract":
 		return 500 * 100000000 / ratio
-	case "AntShares.Blockchain.GetContract":
+	case "Neo.Blockchain.GetContract":
 		return 100
-	case "AntShares.Transaction.GetReferences":
+	case "Neo.Transaction.GetReferences":
 		return 200
-	case "AntShares.Asset.Renew":
+	case "Neo.Asset.Renew":
 		return Peek(e).GetStackItem().GetBigInteger().Int64() * 5000 * 100000000 / ratio
-	case "AntShares.Storage.Get":
+	case "Neo.Storage.Get":
 		return 100
-	case "AntShares.Storage.Put":
+	case "Neo.Storage.Put":
 		return 1000
-	case "AntShares.Storage.Delete":
+	case "Neo.Storage.Delete":
 		return 100
 	default:
 		return 1

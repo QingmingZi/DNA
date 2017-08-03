@@ -215,8 +215,12 @@ func validatorSetItem(e *ExecutionEngine) error {
 	item := arrItem.GetStackItem()
 	if _, ok := item.(*types.Array); !ok {
 		if _, ok := item.(*types.ByteArray); ok {
-			if index >= len(item.GetByteArray()) {
+			l := len(item.GetByteArray())
+			if index >= l {
 				return ErrOverMaxArraySize
+			}
+			if len(newItem.GetStackItem().GetByteArray()) == 0 {
+				return ErrBadValue
 			}
 		} else {
 			return ErrBadValue
@@ -226,7 +230,6 @@ func validatorSetItem(e *ExecutionEngine) error {
 			return ErrOverMaxArraySize
 		}
 	}
-
 	return nil
 }
 

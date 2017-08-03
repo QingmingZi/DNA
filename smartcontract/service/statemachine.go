@@ -17,6 +17,8 @@ import (
 	"bytes"
 	"DNA/core/store"
 	"DNA/errors"
+	. "DNA/smartcontract/errors"
+	"math"
 )
 
 type StateMachine struct {
@@ -79,10 +81,19 @@ func (s *StateMachine) RegisterValidator(engine *avm.ExecutionEngine) (bool, err
 func (s *StateMachine) CreateAsset(engine *avm.ExecutionEngine) (bool, error) {
 	tx := engine.GetCodeContainer().(*transaction.Transaction);
 	assetId := tx.Hash()
-	assertType := avm.PopBigInt(engine)
+	assertType := asset.AssetType(avm.PopInt(engine))
 	name := avm.PopByteArray(engine)
+	if len(name) > 1024 {
+		return false, ErrAssetNameInvalid
+	}
 	amount := avm.PopBigInt(engine)
 	precision := avm.PopBigInt(engine)
+	if precision.Int64() > 8 {
+		return false, ErrAssetPrecisionInvalid
+	}
+	if amount.Int64() % int64(math.Pow(10, 8-float64(precision.Int64()))) != 0 {
+		return false, ErrAssetAmountInvalid
+	}
 	ownerByte := avm.PopByteArray(engine)
 	owner, err := crypto.DecodePoint(ownerByte)
 	if err != nil {
@@ -107,12 +118,10 @@ func (s *StateMachine) CreateAsset(engine *avm.ExecutionEngine) (bool, error) {
 	if !contains(phs, h) {
 		return false, errors.NewDetailErr(err, errors.ErrNoCode, "[StateMachine], CreateAsset failed.")
 	}
-	b := new(bytes.Buffer)
-	assetId.Serialize(b)
-	assetState, err := s.CloneCache.GetInnerCache().GetOrAdd(store.ST_Asset, b.String(), &states.AssetState{
+	assetState := &states.AssetState{
 		AssetId: assetId,
-		AssetType: asset.AssetType(assertType.Int64()),
-		Name: hex.EncodeToString(name),
+		AssetType: asset.AssetType(assertType),
+		Name: string(name),
 		Amount: common.Fixed64(amount.Int64()),
 		Precision: byte(precision.Int64()),
 		Admin: admin,
@@ -120,10 +129,8 @@ func (s *StateMachine) CreateAsset(engine *avm.ExecutionEngine) (bool, error) {
 		Owner: owner,
 		Expiration: ledger.DefaultLedger.Store.GetHeight() + 1 + 2000000,
 		IsFrozen: false,
-	})
-	if err != nil {
-		return false, err
 	}
+	s.CloneCache.GetInnerCache().GetWriteSet().Add(store.ST_AssetState, string(assetId.ToArray()), assetState)
 	avm.PushData(engine, assetState)
 	return true, nil
 }
@@ -179,7 +186,7 @@ func (s *StateMachine) AssetRenew(engine *avm.ExecutionEngine) (bool, error) {
 	height := ledger.DefaultLedger.Store.GetHeight() + 1
 	b := new(bytes.Buffer)
 	at.AssetId.Serialize(b)
-	state, err := s.CloneCache.TryGet(store.ST_Asset, b.String())
+	state, err := s.CloneCache.TryGet(store.ST_AssetState, b.String())
 	if err != nil {
 		return false, err
 	}
