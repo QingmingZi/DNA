@@ -10,10 +10,8 @@ const (
 	Hash160
 	Hash256
 	ByteArray
+	String
 	PublicKey
-	PublicKeyArray
-	//Code
-	//String
 	Object
 	Void = 0xff
 )
