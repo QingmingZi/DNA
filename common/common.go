@@ -48,6 +48,14 @@ func BytesToInt16(b []byte) int16 {
 	return int16(tmp)
 }
 
+func BytesToInt(b [] byte) []int {
+	i := make([]int, len(b))
+	for k,v := range b {
+		i[k] = int(v)
+	}
+	return i
+}
+
 func IsEqualBytes(b1 []byte, b2 []byte) bool {
 	len1 := len(b1)
 	len2 := len(b2)

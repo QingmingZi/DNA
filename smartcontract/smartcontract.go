@@ -112,7 +112,10 @@ func (sc *SmartContract) InvokeResult() (interface{}, error) {
 				return avm.PopBoolean(engine), nil
 			case contract.Integer:
 				return avm.PopInt(engine), nil
-			case contract.ByteArray, contract.String:
+			case contract.ByteArray:
+				bs := avm.PopByteArray(engine)
+				return common.BytesToInt(bs), nil
+			case contract.String:
 				return string(avm.PopByteArray(engine)), nil
 			case contract.Hash160, contract.Hash256:
 				return common.ToHexString(common.ToArrayReverse(avm.PopByteArray(engine))), nil
