@@ -98,7 +98,10 @@ func (sc *SmartContract) InvokeContract() (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	sc.Engine.Call(sc.Caller, sc.CodeHash, input)
+	_, err = sc.Engine.Call(sc.Caller, sc.CodeHash, input)
+	if err != nil {
+		return nil, err
+	}
 	return sc.InvokeResult()
 }
 

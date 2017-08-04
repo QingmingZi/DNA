@@ -19,6 +19,7 @@ import (
 	"DNA/errors"
 	. "DNA/smartcontract/errors"
 	"math"
+	"DNA/common/log"
 )
 
 type StateMachine struct {
@@ -31,9 +32,9 @@ func NewStateMachine(dbCache storage.DBCache, innerCache storage.DBCache) *State
 	var stateMachine StateMachine
 	stateMachine.CloneCache = storage.NewCloneDBCache(innerCache, dbCache)
 	stateMachine.StateReader = NewStateReader()
-	stateMachine.StateReader.Register("Neo.Blockchain.RegisterValidator", stateMachine.RegisterValidator)
-	stateMachine.StateReader.Register("Neo.Blockchain.CreateAsset", stateMachine.CreateAsset)
-	stateMachine.StateReader.Register("Neo.Blockchain.CreateContract", stateMachine.CreateContract)
+	stateMachine.StateReader.Register("Neo.Validator.Register", stateMachine.RegisterValidator)
+	stateMachine.StateReader.Register("Neo.Asset.Create", stateMachine.CreateAsset)
+	stateMachine.StateReader.Register("Neo.Contract.Create", stateMachine.CreateContract)
 	stateMachine.StateReader.Register("Neo.Blockchain.GetContract", stateMachine.GetContract)
 	stateMachine.StateReader.Register("Neo.Asset.Renew", stateMachine.AssetRenew)
 	stateMachine.StateReader.Register("Neo.Storage.Get", stateMachine.StorageGet);
@@ -87,10 +88,14 @@ func (s *StateMachine) CreateAsset(engine *avm.ExecutionEngine) (bool, error) {
 		return false, ErrAssetNameInvalid
 	}
 	amount := avm.PopBigInt(engine)
+	if amount.Int64() == 0 {
+		return false, ErrAssetAmountInvalid
+	}
 	precision := avm.PopBigInt(engine)
 	if precision.Int64() > 8 {
 		return false, ErrAssetPrecisionInvalid
 	}
+	log.Error("[StateMachine], CreateAsset amount:", amount, int64(math.Pow(10, 8-float64(precision.Int64()))), amount.Int64() % int64(math.Pow(10, 8-float64(precision.Int64()))))
 	if amount.Int64() % int64(math.Pow(10, 8-float64(precision.Int64()))) != 0 {
 		return false, ErrAssetAmountInvalid
 	}
@@ -109,15 +114,15 @@ func (s *StateMachine) CreateAsset(engine *avm.ExecutionEngine) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	phs, err := s.GetCodeHashsForVerifying(engine)
-	c, err := contract.CreateSignatureRedeemScript(owner)
-	if err != nil {
-		return false, err
-	}
-	h, err := common.ToCodeHash(c)
-	if !contains(phs, h) {
-		return false, errors.NewDetailErr(err, errors.ErrNoCode, "[StateMachine], CreateAsset failed.")
-	}
+	//phs, err := s.GetCodeHashsForVerifying(engine)
+	//c, err := contract.CreateSignatureRedeemScript(owner)
+	//if err != nil {
+	//	return false, err
+	//}
+	//h, err := common.ToCodeHash(c)
+	//if !contains(phs, h) {
+	//	return false, errors.NewErr(err, errors.ErrNoCode, "[StateMachine], CreateAsset failed.")
+	//}
 	assetState := &states.AssetState{
 		AssetId: assetId,
 		AssetType: asset.AssetType(assertType),
@@ -131,6 +136,7 @@ func (s *StateMachine) CreateAsset(engine *avm.ExecutionEngine) (bool, error) {
 		IsFrozen: false,
 	}
 	s.CloneCache.GetInnerCache().GetWriteSet().Add(store.ST_AssetState, string(assetId.ToArray()), assetState)
+	fmt.Printf("[StateMachine] assetState:%+v", assetState)
 	avm.PushData(engine, assetState)
 	return true, nil
 }
