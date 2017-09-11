@@ -776,7 +776,7 @@ func (bd *ChainStore) persist(b *Block) error {
 		case tx.DeployCode:
 			deployCode := b.Transactions[i].Payload.(*payload.DeployCode)
 			codeHash := deployCode.Code.CodeHash()
-			dbCache.RWSet.Add(ST_Contract, string(codeHash.ToArray()), &states.ContractState{
+			dbCache.GetOrAdd(ST_Contract, string(codeHash.ToArray()), &states.ContractState{
 				Code: deployCode.Code,
 				Name: deployCode.Name,
 				Version: deployCode.CodeVersion,
@@ -821,19 +821,22 @@ func (bd *ChainStore) persist(b *Block) error {
 			invokeCode := b.Transactions[i].Payload.(*payload.InvokeCode)
 			contract, err := bd.GetContract(invokeCode.CodeHash)
 			if err != nil {
+				log.Error("db getcontract err:", err)
 				httpwebsocket.PushResult(txHash, SMARTCODE_ERROR, INVOKE_TRANSACTION, err)
 				continue
 			}
 			state, err := states.GetStateValue(ST_Contract, contract)
 			if err != nil {
+				log.Error("states GetStateValue err:", err)
 				httpwebsocket.PushResult(txHash, SMARTCODE_ERROR, INVOKE_TRANSACTION, err)
 				return err
 			}
 			contractState := state.(*states.ContractState)
+			stateMachine := service.NewStateMachine(dbCache, NewDBCache(bd))
 			smartContract, err := smartcontract.NewSmartContract(&smartcontract.Context{
 				Language: contractState.Language,
 				Caller: invokeCode.ProgramHash,
-				StateMachine: service.NewStateMachine(dbCache, NewDBCache(bd)),
+				StateMachine: stateMachine,
 				DBCache: dbCache,
 				CodeHash: invokeCode.CodeHash,
 				Input: invokeCode.Code,
@@ -846,14 +849,17 @@ func (bd *ChainStore) persist(b *Block) error {
 				ParameterTypes: contractState.Code.ParameterTypes,
 			})
 			if err != nil {
+				log.Error("smartcontract NewSmartContract err:", err)
 				httpwebsocket.PushResult(txHash, SMARTCODE_ERROR, INVOKE_TRANSACTION, err)
 				continue
 			}
 			ret, err := smartContract.InvokeContract()
 			if err != nil {
+				log.Error("smartContract InvokeContract err:", err)
 				httpwebsocket.PushResult(txHash, SMARTCODE_ERROR, INVOKE_TRANSACTION, err)
 				continue
 			}
+			stateMachine.CloneCache.Commit()
 			httpwebsocket.PushResult(txHash, 0, INVOKE_TRANSACTION, ret)
 		}
 

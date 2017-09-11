@@ -16,7 +16,6 @@ type DeployCode struct {
 	CodeVersion string
 	Author      string
 	Email       string
-	Contract    string
 	Description string
 	Language    types.LangType
 	ProgramHash common.Uint160
@@ -57,11 +56,6 @@ func (dc *DeployCode) Serialize(w io.Writer) error {
 	}
 
 	err = serialization.WriteVarString(w, dc.Email)
-	if err != nil {
-		return err
-	}
-
-	err = serialization.WriteVarString(w, dc.Contract)
 	if err != nil {
 		return err
 	}
@@ -111,11 +105,6 @@ func (dc *DeployCode) Deserialize(r io.Reader) error {
 	}
 
 	dc.Email, err = serialization.ReadVarString(r)
-	if err != nil {
-		return err
-	}
-
-	dc.Contract, err = serialization.ReadVarString(r)
 	if err != nil {
 		return err
 	}

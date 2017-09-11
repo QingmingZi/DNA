@@ -20,3 +20,10 @@ var (
 		Solidity: EVM,
 	}
 )
+
+type TriggerType byte
+
+const (
+	Verification TriggerType = iota
+	Application
+)

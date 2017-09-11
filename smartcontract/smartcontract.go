@@ -8,6 +8,7 @@ import (
 	"DNA/smartcontract/storage"
 	"DNA/smartcontract/service"
 	"DNA/smartcontract/types"
+	. "DNA/vm/avm/types"
 	"DNA/vm/avm"
 	"DNA/vm/evm"
 	"DNA/errors"
@@ -94,11 +95,11 @@ func (sc *SmartContract) DeployContract() ([]byte, error) {
 }
 
 func (sc *SmartContract) InvokeContract() (interface{}, error) {
-	input, err := sc.InvokeParamsTransform()
-	if err != nil {
-		return nil, err
-	}
-	_, err = sc.Engine.Call(sc.Caller, sc.CodeHash, input)
+	//input, err := sc.InvokeParamsTransform()
+	//if err != nil {
+	//	return nil, err
+	//}
+	_, err := sc.Engine.Call(sc.Caller, sc.CodeHash, sc.Input)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +115,7 @@ func (sc *SmartContract) InvokeResult() (interface{}, error) {
 			case contract.Boolean:
 				return avm.PopBoolean(engine), nil
 			case contract.Integer:
-				return avm.PopInt(engine), nil
+				return avm.PopBigInt(engine).String(), nil
 			case contract.ByteArray:
 				bs := avm.PopByteArray(engine)
 				return common.BytesToInt(bs), nil
@@ -125,20 +126,44 @@ func (sc *SmartContract) InvokeResult() (interface{}, error) {
 			case contract.PublicKey:
 				return common.ToHexString(avm.PopByteArray(engine)), nil
 			case contract.Object:
-				data := avm.PeekInteropInterface(engine)
+				data := avm.PeekStackItem(engine)
 				switch data.(type) {
-				case *ledger.Header:
-					return service.GetHeaderInfo(data.(*ledger.Header)), nil
-				case *ledger.Block:
-					return service.GetBlockInfo(data.(*ledger.Block)), nil
-				case *transaction.Transaction:
-					return service.GetTransactionInfo(data.(*transaction.Transaction)), nil
-				case *states.AccountState:
-					return service.GetAccountInfo(data.(*states.AccountState)), nil
-				case *asset.Asset:
-					return service.GetAssetInfo(data.(*asset.Asset)), nil
-				default:
-					return data, nil
+				case *Boolean:
+					return data.GetBoolean(), nil
+				case *Integer:
+					return data.GetBigInteger(), nil
+				case *ByteArray:
+					return common.BytesToInt(data.GetByteArray()), nil
+				case *InteropInterface:
+					interop := data.GetInterface()
+					switch interop.(type) {
+					case *ledger.Header:
+						return service.GetHeaderInfo(interop.(*ledger.Header)), nil
+					case *ledger.Block:
+						return service.GetBlockInfo(interop.(*ledger.Block)), nil
+					case *transaction.Transaction:
+						return service.GetTransactionInfo(interop.(*transaction.Transaction)), nil
+					case *states.AccountState:
+						return service.GetAccountInfo(interop.(*states.AccountState)), nil
+					case *asset.Asset:
+						return service.GetAssetInfo(interop.(*asset.Asset)), nil
+					}
+				}
+			//case contract.Object:
+			//	data := avm.PeekInteropInterface(engine)
+			//	switch data.(type) {
+			//	case *ledger.Header:
+			//		return service.GetHeaderInfo(data.(*ledger.Header)), nil
+			//	case *ledger.Block:
+			//		return service.GetBlockInfo(data.(*ledger.Block)), nil
+			//	case *transaction.Transaction:
+			//		return service.GetTransactionInfo(data.(*transaction.Transaction)), nil
+			//	case *states.AccountState:
+			//		return service.GetAccountInfo(data.(*states.AccountState)), nil
+			//	case *asset.Asset:
+			//		return service.GetAssetInfo(data.(*asset.Asset)), nil
+			//	default:
+			//		return data, nil
 					//data := avm.PeekArray(engine)
 					//if len(data) == 0 {
 					//	return nil, nil
@@ -152,7 +177,7 @@ func (sc *SmartContract) InvokeResult() (interface{}, error) {
 					//	return service.GetTransactionAttributes(attributs)
 					//}
 					//return data, nil
-				}
+				//}
 			}
 		}
 	case types.EVM:
@@ -191,12 +216,18 @@ func (sc *SmartContract) InvokeParamsTransform() ([]byte, error) {
 					return nil, err
 				}
 				builder.EmitPushByteArray(common.ToArrayReverse(p))
-			case contract.ByteArray:
+			case contract.ByteArray, contract.String:
 				p, err := serialization.ReadVarBytes(b)
 				if err != nil {
 					return nil, err
 				}
 				builder.EmitPushByteArray(p)
+			case contract.Array:
+				//val, err := serialization.ReadVarUint(b, 0)
+				//if err != nil {
+				//	return nil, err
+				//}
+
 			}
 		}
 		builder.EmitPushCall(sc.CodeHash.ToArray())

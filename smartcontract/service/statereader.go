@@ -4,12 +4,15 @@ import (
 	"DNA/core/ledger"
 	"DNA/common"
 	"math/big"
-	"errors"
 	"fmt"
 	"DNA/vm/avm/types"
 	"DNA/core/transaction"
 	"DNA/smartcontract/states"
 	"DNA/vm/avm"
+	"DNA/core/signature"
+	"DNA/crypto"
+	"DNA/core/contract"
+	"DNA/errors"
 )
 
 type StateReader struct {
@@ -19,6 +22,12 @@ type StateReader struct {
 func NewStateReader() *StateReader {
 	var stateReader StateReader
 	stateReader.serviceMap = make(map[string]func(*avm.ExecutionEngine) (bool, error), 0)
+	stateReader.Register("Neo.Runtime.GetTrigger", stateReader.RuntimeGetTrigger);
+	stateReader.Register("Neo.Runtime.CheckWitness", stateReader.RuntimeCheckWitness);
+	stateReader.Register("Neo.Runtime.Notify", stateReader.RuntimeNotify);
+	stateReader.Register("Neo.Runtime.Log", stateReader.RuntimeLog);
+
+
 	stateReader.Register("Neo.Blockchain.GetHeight", stateReader.BlockChainGetHeight)
 	stateReader.Register("Neo.Blockchain.GetHeader", stateReader.BlockChainGetHeader)
 	stateReader.Register("Neo.Blockchain.GetBlock", stateReader.BlockChainGetBlock)
@@ -87,6 +96,66 @@ func (s *StateReader) GetServiceMap() map[string]func(*avm.ExecutionEngine) (boo
 	return s.serviceMap
 }
 
+func (s *StateReader) RuntimeGetTrigger(e *avm.ExecutionEngine) (bool, error) {
+	return true, nil
+}
+
+func (s *StateReader) RuntimeNotify(e *avm.ExecutionEngine) (bool, error) {
+	avm.PopStackItem(e)
+	return true, nil
+}
+
+func (s *StateReader) RuntimeLog(e *avm.ExecutionEngine) (bool, error) {
+	return true, nil
+}
+
+func(s *StateReader) CheckWitnessHash(engine *avm.ExecutionEngine, programHash common.Uint160) (bool, error) {
+	hashForVerifying, err := engine.GetCodeContainer().(signature.SignableData).GetProgramHashes(); if err != nil {
+		return false, err
+	}
+	return contains(hashForVerifying, programHash), nil;
+}
+
+func(s *StateReader) CheckWitnessPublicKey(engine *avm.ExecutionEngine, publicKey *crypto.PubKey) (bool, error) {
+	c, err := contract.CreateSignatureRedeemScript(publicKey)
+	if err != nil {
+		return false, err
+	}
+	h, err := common.ToCodeHash(c)
+	if err != nil {
+		return false, err
+	}
+	return s.CheckWitnessHash(engine, h);
+}
+
+func (s *StateReader) RuntimeCheckWitness(e *avm.ExecutionEngine) (bool, error) {
+	data := avm.PopByteArray(e)
+	var (
+		result bool
+		err error
+	)
+	if len(data) == 20 {
+		program, err := common.Uint160ParseFromBytes(data)
+		if err != nil {
+			return false, err
+		}
+		result, err = s.CheckWitnessHash(e, program)
+	}else if len(data) == 33 {
+		publicKey, err := crypto.DecodePoint(data)
+		if err != nil {
+			return false, err
+		}
+		result, err = s.CheckWitnessPublicKey(e, publicKey)
+	}else {
+		return false, errors.NewDetailErr(err, errors.ErrNoCode, "[RuntimeCheckWitness] data invalid.")
+	}
+	if err != nil {
+		return false, err
+	}
+	avm.PushData(e, result)
+	return true, nil
+}
+
 func (s *StateReader) BlockChainGetHeight(e *avm.ExecutionEngine) (bool, error) {
 	var i uint32
 	if ledger.DefaultLedger == nil {
@@ -114,24 +183,17 @@ func (s *StateReader) BlockChainGetHeader(e *avm.ExecutionEngine) (bool, error) 
 				return false, err
 			}
 			header, err = ledger.DefaultLedger.Store.GetHeader(hash)
-			if err != nil {
-				return false, err
-			}
-		} else {
-			header = nil
 		}
 	} else if l == 32 {
 		hash, _ := common.Uint256ParseFromBytes(data)
 		if ledger.DefaultLedger != nil {
 			header, err = ledger.DefaultLedger.Store.GetHeader(hash)
-			if err != nil {
-				return false, err
-			}
-		} else {
-			header = nil
 		}
 	} else {
-		return false, errors.New("The data length is error in function blockchaningetheader!")
+		return false, errors.NewErr("[BlockChainGetHeader] data invalid.")
+	}
+	if err != nil {
+		return false, err
 	}
 	avm.PushData(e, header)
 	return true, nil
@@ -141,6 +203,7 @@ func (s *StateReader) BlockChainGetBlock(e *avm.ExecutionEngine) (bool, error) {
 	data := avm.PopByteArray(e)
 	var (
 		block *ledger.Block
+		err error
 	)
 	l := len(data)
 	if l <= 5 {
@@ -152,11 +215,6 @@ func (s *StateReader) BlockChainGetBlock(e *avm.ExecutionEngine) (bool, error) {
 				return false, err
 			}
 			block, err = ledger.DefaultLedger.Store.GetBlock(hash)
-			if err != nil {
-				return false, err
-			}
-		} else {
-			block = nil
 		}
 	} else if l == 32 {
 		hash, err := common.Uint256ParseFromBytes(data)
@@ -165,14 +223,12 @@ func (s *StateReader) BlockChainGetBlock(e *avm.ExecutionEngine) (bool, error) {
 		}
 		if ledger.DefaultLedger != nil {
 			block, err = ledger.DefaultLedger.Store.GetBlock(hash)
-			if err != nil {
-				return false, err
-			}
-		} else {
-			block = nil
 		}
 	} else {
-		return false, errors.New("The data length is error in function blockchaningetblock!")
+		return false, errors.NewErr("[BlockChainGetBlock] data invalid.")
+	}
+	if err != nil {
+		return false ,err
 	}
 	avm.PushData(e, block)
 	return true, nil

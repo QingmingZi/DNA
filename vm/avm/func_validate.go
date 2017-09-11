@@ -163,6 +163,13 @@ func validateRight(e *ExecutionEngine) error {
 	return nil
 }
 
+func validatorBigIntComp(e *ExecutionEngine) error {
+	if EvaluationStackCount(e) < 2 {
+		return ErrUnderStackLen
+	}
+	return nil
+}
+
 func validatePack(e *ExecutionEngine) error {
 	count := PeekInt(e)
 	if uint32(count) > MaxArraySize {

@@ -10,8 +10,21 @@ const (
 	Hash160
 	Hash256
 	ByteArray
-	String
 	PublicKey
+	String
 	Object
+	Array = 0x10
 	Void = 0xff
 )
+
+type ContractParameter struct {
+	Type ContractParameterType
+	Value interface{}
+}
+
+
+
+
+
+
+

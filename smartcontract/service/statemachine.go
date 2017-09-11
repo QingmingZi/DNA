@@ -13,19 +13,16 @@ import (
 	"DNA/core/contract"
 	"DNA/core/ledger"
 	"DNA/core/code"
-	"DNA/core/signature"
 	"bytes"
 	"DNA/core/store"
 	"DNA/errors"
 	. "DNA/smartcontract/errors"
 	"math"
-	"DNA/common/log"
 )
 
 type StateMachine struct {
 	*StateReader
 	CloneCache *storage.CloneCache
-	hashForVerifying []common.Uint160
 }
 
 func NewStateMachine(dbCache storage.DBCache, innerCache storage.DBCache) *StateMachine {
@@ -44,9 +41,7 @@ func NewStateMachine(dbCache storage.DBCache, innerCache storage.DBCache) *State
 	return &stateMachine
 }
 
-func (s *StateMachine) GetCodeHashsForVerifying(engine *avm.ExecutionEngine) ([]common.Uint160, error) {
-	return engine.GetCodeContainer().(signature.SignableData).GetProgramHashes()
-}
+
 
 func (s *StateMachine) RegisterValidator(engine *avm.ExecutionEngine) (bool, error) {
 	pubkeyByte := avm.PopByteArray(engine)
@@ -54,20 +49,8 @@ func (s *StateMachine) RegisterValidator(engine *avm.ExecutionEngine) (bool, err
 	if err != nil {
 		return false, err
 	}
-	phs, err := s.GetCodeHashsForVerifying(engine)
-	if err != nil {
-		return false, err
-	}
-	c, err := contract.CreateSignatureRedeemScript(pubkey)
-	if err != nil {
-		return false, err
-	}
-	h, err := common.ToCodeHash(c)
-	if err != nil {
-		return false, err
-	}
-	if !contains(phs, h) {
-		return false, errors.NewDetailErr(err, errors.ErrNoCode, "[StateMachine], RegisterValidator failed.")
+	if result, err := s.StateReader.CheckWitnessPublicKey(engine, pubkey); !result {
+		return result, err
 	}
 	b := new(bytes.Buffer)
 	pubkey.Serialize(b)
@@ -95,7 +78,6 @@ func (s *StateMachine) CreateAsset(engine *avm.ExecutionEngine) (bool, error) {
 	if precision.Int64() > 8 {
 		return false, ErrAssetPrecisionInvalid
 	}
-	log.Error("[StateMachine], CreateAsset amount:", amount, int64(math.Pow(10, 8-float64(precision.Int64()))), amount.Int64() % int64(math.Pow(10, 8-float64(precision.Int64()))))
 	if amount.Int64() % int64(math.Pow(10, 8-float64(precision.Int64()))) != 0 {
 		return false, ErrAssetAmountInvalid
 	}
@@ -103,6 +85,9 @@ func (s *StateMachine) CreateAsset(engine *avm.ExecutionEngine) (bool, error) {
 	owner, err := crypto.DecodePoint(ownerByte)
 	if err != nil {
 		return false, err
+	}
+	if result, err := s.StateReader.CheckWitnessPublicKey(engine, owner); !result {
+		return result, err
 	}
 	adminByte := avm.PopByteArray(engine)
 	admin, err := common.Uint160ParseFromBytes(adminByte)
@@ -114,15 +99,7 @@ func (s *StateMachine) CreateAsset(engine *avm.ExecutionEngine) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	//phs, err := s.GetCodeHashsForVerifying(engine)
-	//c, err := contract.CreateSignatureRedeemScript(owner)
-	//if err != nil {
-	//	return false, err
-	//}
-	//h, err := common.ToCodeHash(c)
-	//if !contains(phs, h) {
-	//	return false, errors.NewErr(err, errors.ErrNoCode, "[StateMachine], CreateAsset failed.")
-	//}
+
 	assetState := &states.AssetState{
 		AssetId: assetId,
 		AssetType: asset.AssetType(assertType),
@@ -246,7 +223,7 @@ func (s *StateMachine) StorageGet(engine *avm.ExecutionEngine) (bool, error) {
 		return false, err
 	}
 	if item == nil {
-		avm.PushData(engine, []byte{0})
+		avm.PushData(engine, []byte{})
 	}else {
 		avm.PushData(engine, item.(*states.StorageItem).Value)
 	}
@@ -276,7 +253,6 @@ func contains(programHashes []common.Uint160, programHash common.Uint160) bool {
 	for _, v := range programHashes {
 		if v == programHash {
 			return true
-			break
 		}
 	}
 	return false
